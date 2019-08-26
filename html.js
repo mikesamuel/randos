@@ -1,3 +1,5 @@
+// Support for HTML content generation.
+
 class HTML {
   constructor(content) {
     this.content = content;
