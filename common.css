@@ -1,0 +1,58 @@
+body {
+    font-family: "Noto Sans", "Lucida Grande", "Lucida Sans", "Segoe UI", "Verdana", sans-serif;
+    background: #fafafa;
+    color: #222;
+    line-height: 1.5em;
+    padding: .25em .5em;
+    margin: 0;
+}
+code, pre, tt {
+  font-family: "Inconsolata", "Consolas", "Lucida Console", "Monaco", monospace
+}
+
+table {
+    border: 1px solid #222;
+    empty-cells: show;
+    border-spacing: 0;
+}
+table, .together, blockquote {
+    page-break-inside: avoid
+}
+td, th {
+    padding: 2px 1ex
+}
+thead > tr > * {
+    border-bottom: 1px solid #222
+}
+tbody > tr:nth-child(even) {
+    background-color: #ccc
+}
+thead {
+    background-color: #fff
+}
+tr > td {
+    border-left: 1px dotted #222
+  }
+tr > th {
+    border-left: 1px solid #222
+}
+blockquote > *:first-child:before {
+    font-size: 300%;
+    font-family: Georgia, serif;
+    content: '\201c';
+    line-height: 1em;
+}
+.indent {
+    margin-left: 2em
+}
+
+a.headerLink { visibility: hidden; padding-left: 1em; font-size: 75%; text-decoration: none }
+*:hover > a.headerLink { visibility: visible }
+
+a[href] { color: #00b }
+@media screen, projection {
+    a:visited { color: #808 }
+}
+
+a.fn { font-size: 50%; vertical-align: super }
+p.fn { font-size: 75% }
