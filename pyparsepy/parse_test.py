@@ -174,6 +174,28 @@ elif y():
             ],
         )
 
+    def test_lambda_then_colon(self):
+        self.assert_tree(
+            'if lambda x: x:\n\tpass',
+            [
+                [
+                    'if',
+                    [
+                        [
+                            'lambda',
+                            ['x'],
+                            ':',
+                            ['x'],
+                        ],
+                        ':',
+                    ],
+                ],
+                '>>>',
+                [['pass'], '\n'],
+                '<<<',
+            ]
+        )
+
     def test_multi_word_operators(self):
         self.assert_tree(
             'x not in y and w is not z',

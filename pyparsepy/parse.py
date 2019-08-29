@@ -91,7 +91,7 @@ def parse(tokens):
                             tok_index = ti
                     fip = (
                         op.followers.index(tok, max_follower_seen + 1)
-                        if tok in op.followers else None)
+                        if tok in op.followers[max_follower_seen+1:] else None)
                     if fip is not None:
                         commit_to(i + 1)
                         add_token_to(token, el)
