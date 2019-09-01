@@ -2441,10 +2441,10 @@ function makeParser(opSet, canNest) {
       if (follows.size) {
         for (let i = operatorStack.length; --i >= 0;) {
           const el = operatorStack[i];
-          const { op, node } = el;
-          if (needsCloseBracket(operatorStack[i])) {
+          if (needsCloseBracket(el)) {
             break;
           }
+          const { op, node } = el;
           if (follows.has(op)) {
             let tokIndex = indexOfToken(node, op.tok);
             let maxFollowerSeen = -1;
