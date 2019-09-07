@@ -19,8 +19,8 @@
   .input:after { content: "\201d" }
   .tokens:before { content: "Tokens: " }
   #tio-table .tokens:before { content: "" }
-  .token:after { content: "\201d" }
-  .token:before { content: "\201c" }
+  dl > dt:after, .token:after { content: "\201d" }
+  dl > dt:before, .token:before { content: "\201c" }
   summary > .tree:before { content: "Tree: " }
   .tree { white-space: pre-wrap }
   .expected:before { content: "Wanted: " }
@@ -118,6 +118,8 @@
       border: 0; text-align: center;
       font-family: "Inconsolata", "Consolas", "Lucida Console", "Monaco", monospace;
   }
+
+  dl > dt { font-style: italic }
 </style>
 
 <script src="html.js"></script>
@@ -587,8 +589,9 @@ ${ formatOutput(got, 'actual') }`;
 <small><a id="teststatus"></a></small>
 
 <p>
-  Error tolerant parsing techniques for better tool integration,
-  partial analysis, language extensibility, and meta-programming.
+  Error tolerant parsing techniques for C-like languages to enable
+  better tool integration, partial analysis, language extensibility,
+  and meta-programming.
 </p>
 
 <p>
@@ -599,55 +602,134 @@ ${ formatOutput(got, 'actual') }`;
 
 <ol id="toc"></ol>
 
-<p>Programming languages depend on an ecosystem of tools, which,
-unlike the compiler, may need to degrade gracefully when given inputs
-that are incomplete or broken.  For example, developers depend on
-their IDE's suggested completions while editing an incomplete source
-file.  To figure out the type of the expression to the left of the cursor,
-the IDE has to derive some structure from a non-conforming input.</p>
+<h2 id="abstract">Abstract</h2>
 
-<p>Lisps are &ldquo;homoiconic&rdquo;<a href="#fn1" class="fn">1</a>;
-they have grammars that make it relatively easy to introspect
-over a program or part thereof, and often existing grammar rules
-can be reused to extend the language with macro facilities or new
-special forms.</p>
+<p>
+  Most developers are
+  <a href="https://insights.stackoverflow.com/survey/2019#technology-_-programming-scripting-and-markup-languages">familiar</a>
+  with languages whorse surface syntax is "C-like": C, C++, C#, Go,
+  Java, JavaScript, Perl, Rust, Scala, Swift, and TypeScript.  But the
+  complexity of parsing C-like languages makes it hard to achieve what
+  Lisps take for granted.
+</p>
 
-<p>Many developers are
-<a href="https://insights.stackoverflow.com/survey/2019#technology-_-programming-scripting-and-markup-languages">familiar</a> with languages whorse surface syntax is
-"C-like": C, C++, C#, Go, Java, JavaScript, Perl, Rust, Scala, Swift, and
-TypeScript.</p>
+<p>
+  Lisps reuse a few syntactic constructs that transparently relate to
+  commonly used datatypes.  This makes it easy for programmer tools to
+  deal with program fragments, for designers to extend the language
+  with new special forms or macros, and for programs to manipulate
+  programs as data.
+</p>
 
-<p>When designing a language for an audience familiar with C-like
-syntax it'd be nice to get some of the same benefits as Lisp.</p>
+<p>
+  Lispers often group these benefits under the rubric of &ldquo;homoiconicity&rdquo;.
+  That term has
+  <a href="http://www.expressionsofchange.org/dont-say-homoiconic/">some</a>
+  <a href="http://calculist.org/blog/2012/04/17/homoiconicity-isnt-the-point/">problems</a>,
+  so this document adopts goals attributed to homoiconicity but does
+  not claims that any resulting language is homoiconic.  These goals
+  include:
+</p>
 
-<p>This document:</p>
 <ul>
-  <li>Defines a <i>cover grammar</i> for C-like statement constructs
-  and catalogues exceptions to the rule,</li>
-  <li>Defines an <i>operator-precedence parser</i> for C-like languages
-  that reuses a small number of rules,</li>
-  <li>Defines a context-free <i>lexer</i> which recognizes complicated lexical
-  constructs from JavaScript and Perl but which, unlike those languages,
-  does not require scannerless parsing,</li>
-  <li>Evaluates the same on <i>partial & broken inputs</i> to see how well it
-  localizes damage to the parse tree,</li>
-  <li>Catalogues the ways that a parse tree derived from a partial or
-  broken input may fail generic <i>well-formedness checks</i>.</li>
-  <li>Shows how <i>parser combinators</i> can be used to derive ASTs from
-  parse trees, including partial or broken parse trees, for a toy language,</li>
-  <li>Extends the toy language with <i>quasiquotation</i> syntax,</li>
-  <li><i>Advises</i> language implementors on how to craft a grammar to
-  enable this approach.</li>
+  <li>
+    <p>
+      The coarse-grained structure of a program can be inferred
+      without a grammar rule per special form.
+    <p>
+      This lets tools easily analyzing a fragment of a larger
+      program at the lowest appropriate level of abstraction.
+      For example, test coverage tools and dynamic call graph generators
+      instrument programs but can often operate on a token stream.
+  </li>
+
+  <li>Common syntactic errors can be isolated to part of a parse tree.
+    This is important when a developer is editing code.
+    <ul>
+      <li>IDEs should be able to derive some type information to
+	suggest appropriate completions, even when the expression
+	containing the cursor is malformed.
+      <li>If an input to a REPL fails to parse, the REPL should be
+	able to localize the error to a fragment, and re-present the
+	input with the cursor at a convenient place.
+    </ul>
+    <p>
+      It also lets tools provide degraded service when given a
+      program that uses a new special form.
+  <li>
+    Program generating programs can reuse the small number of rules
+    with extensions.
+  </li>
+
+  <li>
+    Non-onerous syntactic constraints allow common flow-insensitive
+    analyses like matching uses of symbols with declarations to be
+    performed by simple tools without converting a parse tree to an
+    AST or taking into account other source files.
+  </li>
 </ul>
 
-<p class="fn" id="fn1">1: The term &ldquo;homoiconic&rdquo; has
-<a href="http://www.expressionsofchange.org/dont-say-homoiconic/">some</a>
-<a href="http://calculist.org/blog/2012/04/17/homoiconicity-isnt-the-point/">problems</a>.
-The term is used herein to refer to ease of analysis at various levels:
-purely lexical, syntactic, compilation unit, whole program.</p>
+<p>
+  Unfortunately large grammars make it hard for tools simpler than the
+  compiler to accurately deal with program fragments, to degrade
+  gracefully, or to deal with code as data.  This limits a diverse
+  tool ecosystems to languages with a large community that can afford
+  the engineering effort.
+</p>
+
+<p>
+  This document introduces a way for niche languages to use familar
+  C-like syntax and hopefully still support a diverse tool ecosystem.
+  Specifically it
+</p>
+<ul>
+  <li>
+    Discusses <i>developers' intuitions</i> about C-like
+    languages that help them reason about partial programs, broken
+    programs, or brokens with unfamiliar special forms,
+  </li>
+  <li>
+    Formalizes those intuitions via a <i>cover grammar</i> for
+    C-like statement constructs and catalogues exceptions to the
+    rule,
+  </li>
+  <li>
+    Defines an <i>operator-precedence parser</i> for C-like languages
+    that reuses a small number of rules,
+  </li>
+  <li>
+    Catalogues sources of <i>non-context-free</i>ness in some widely-used
+    C-like languages, and how to avoid those in new languages,
+  </li>
+  <li>
+    Defines a context-free <i>lexer</i> which recognizes complicated lexical
+    constructs from JavaScript and Perl but which, unlike those languages,
+    does not require scannerless parsing,
+  </li>
+  <li>
+    Evaluates the same on <i>partial & broken inputs</i> to see how well it
+    localizes damage to the parse tree,
+  </li>
+  <li>
+    Catalogues the ways that a parse tree derived from a partial or
+    broken input may fail generic <i>well-formedness checks</i>,
+  </li>
+  <li>
+    Shows how <i>parser combinators</i> can be used to derive ASTs from
+    parse trees, including partial or broken parse trees, for a toy language,
+  </li>
+  <li>
+    Extends the toy language with <i>quasiquotation</i> syntax,
+  </li>
+  <li>
+    <i>Advises</i> language implementors on how to craft a grammar to
+    enable this approach.
+  </li>
+</ul>
 
 
-<h2 id="a-limited-kind-of-homoiconicity">A limited kind of Homoiconicity</h2>
+<h2 id="covering-grammars">Covering Grammars</h2>
+
 
 <p>
   Grammars with many, fine-grained rules can do a good job preventing
@@ -715,7 +797,13 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
   <li>Declarations inside the parentheses, when allowed, are visible
   within the curly bracket block (<code>{&hellip;}</code>).</li>
   <li>Declarations in either are not visible outside the
-  whole<a href="#fn2" class="fn">2</a>.</li>
+    whole.
+    <small>(This was not the case in
+    <a href="https://stackoverflow.com/a/1287867/20394">C89 and earlier</a>
+    but was
+    <a href="http://port70.net/~nsz/c/c11/n1570.html#6.8.5.3p1">fixed in C99</a>
+    and languages since have followed suit.)</small>
+  </li>
   <li>Execution of statements in <code>{&hellip;}</code> may be executed
   late, multiply, or not at all.</li>
 </ul>
@@ -743,26 +831,6 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 <p><a href="#wrinkle1">Not</a> <a href="#wrinkle2">all</a> follow this convention but
 <a href="#parsing-statements">many do</a>.</p>
 
-<p>The limited form of homoiconicity this document wishes to provide is:</p>
-
-<div class="indent">
-  <p>The coarse-grained structure of a program can be inferred without a grammar
-    rule per special form.</p>
-
-  <p>Common syntactic errors can be isolated to part of a parse tree.</p>
-
-  <p>
-    Program generating programs can reuse the small number of rules
-    with extensions.
-  </p>
-
-  <p>
-    Non-onerous syntactic constraints allow common flow-insensitive
-    analyses like matching uses of symbols with declarations to be
-    performed by simple tools without converting a parse tree to an
-    AST or taking into account other source files.
-  </p>
-</div>
 
 <p>
   This document's focuses on extensibility of statement level
@@ -775,11 +843,70 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
   of this approach.
 </p>
 
-<p class="fn" id="fn2">2: This was not the case in
-<a href="https://stackoverflow.com/a/1287867/20394">C89 and earlier</a>
-but was
-<a href="http://port70.net/~nsz/c/c11/n1570.html#6.8.5.3p1">fixed in C99</a>
-and languages since have followed suit.</p>
+
+<h2 id="trees">A tale of two trees: Parse Trees, ASTs</h2>
+
+<p>
+  This document builds a parser in JavaScript so that it can run in
+  your browser.
+</p>
+
+<p>
+  Before jumping into code, it's worth defining some
+  terms for the purposes of this document:
+</p>
+
+<dl>
+  <dt>Token</dt>
+  <dd>
+    A substring of a program fragment with some diagnostic metadata.
+    Tokens may be malformed, e.g. an unclosed quoted string.
+  </dd>
+
+  <dt>Significant token</dt>
+  <dd>A token that is not a comment or ignorable whitespace.</dd>
+
+  <dt>Parse Tree (CST)</dt>
+  <dd>
+    A tree such that leaves are tokens and a preorder enumeration of
+    leaves yields the significant tokens from which it was parsed.
+  </dd>
+
+  <dt>Abstract Syntax Tree (AST)</dt>
+  <dd>
+    A tree such that each node is either a token, or is a collection
+    of sub-trees and a tag that identifies a production in the
+    language's abstract grammar.
+
+    <p>
+      An AST need not contain all significant tokens, e.g. an
+      implementation might drop parentheses used merely for grouping,
+      or tokens like &ldquo;<tt>if</tt>&rdquo; which are implicit in
+      the tag.
+
+    <p>
+      An inner AST node may have the special <i>error</i> tag in which
+      case its children are a soup of tokens to which later passes should
+      not assign clear semantics.
+  </dd>
+
+  <dt>Lexer</dt>
+  <dd>
+    Partitions source text into a stream of tokens.
+  </dd>
+
+  <dt>Parser</dt>
+  <dd>
+    A consumer of a stream of tokens that produces a parse tree.
+  </dd>
+
+  <dt>Combinator</dt>
+  <dd>
+    A consumer of a stream that builds a structured output based on
+    declarative rules describing patterns involving sequences of
+    stream elements.
+  </dd>
+</dl>
 
 <h2 id="precedence">Precedence</h2>
 
@@ -835,10 +962,9 @@ and languages since have followed suit.</p>
 </p>
 
 <p>
-  This document builds such a parser in JavaScript so that it can run
-  in your browser.  Here is an operator precedence table similar to
-  those that appear in user-documentation for C, Java, and JavaScript
-  which gives a foundation for our precedence relation.
+  Here is an operator precedence table similar to those that appear in
+  user-documentation for <a href="https://en.cppreference.com/w/c/language/operator_precedence">C</a>, <a href="https://docs.oracle.com/javase/tutorial/java/nutsandbolts/operators.html">Java</a> (<a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.2">normative</a>), and <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence#Table">JavaScript</a> which gives a
+  foundation for our precedence relation.
 </p>
 
 <script class="visible">
@@ -3932,15 +4058,34 @@ const wellformedTokenPattern = new RegExp('^(?:' + [
 </script>
 
 <h2 id="combinators">Deriving ASTs via Combinators</h2>
+<p>
+  Many tools properly operate on parse trees, but some, chiefly
+  compilers and interpreters, do better with representations that lack
+  extraneous details, and are more directly related to language
+  specification abstractions or elements of the output.
+  &ldquo;Compilers: Principles, Techniques, and Tools&rdquo; by
+  Aho, Sethi, Ullman contrasts parse trees with a more abstract tree
+  representation:
+</p>
 
-<p>Parser combinators are a fine way to turn a source text into a
-parse tree, but they can also be used to derive an abstract syntax
-tree (AST) from a parse tree.</p>
+<blockquote>
+  Abstract syntax trees, or simply syntax trees, differ from parse
+  trees because superficial distinctions of form, unimportant for
+  translation, do not appear in syntax trees.
+</blockquote>
 
-<p>These tests show ASTs.  Each inner AST node has a green border, and
-the node type in small, green print overlapping the top-left of its
-border.  Leaf nodes are black text, have no type, and always
-correspond to tokens in the input.</p>
+<p>
+  Parser combinators are a fine way to turn a source text into a
+  parse tree, but they can also be used to derive an abstract syntax
+  tree (AST) from a parse tree.
+</p>
+
+<p>
+  These tests show ASTs.  Each inner AST node has a green border, and
+  the node type in small, green print overlapping the top-left of its
+  border.  Leaf nodes are black text, have no type, and always
+  correspond to tokens in the input.
+</p>
 
 <script>
   ta(
