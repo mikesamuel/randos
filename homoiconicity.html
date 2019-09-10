@@ -122,6 +122,10 @@
   dl > dt { font-style: italic }
 </style>
 
+<script
+  src="https://code.jquery.com/jquery-3.4.1.min.js"
+  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+  crossorigin="anonymous"></script>
 <script src="html.js"></script>
 <script>
   // Define a test harness so we can inline test results.
@@ -584,6 +588,8 @@ ${ formatOutput(got, 'actual') }`;
   }
 </script>
 
+<link rel="stylesheet" href="sshow.css" />
+<script src="sshow.js"></script>
 
 <h1>Towards Homoiconicity for <code>{C.like;}</code> languages</h1>
 <small><a id="teststatus"></a></small>
@@ -858,12 +864,93 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 </p>
 
 
-<h2 id="trees">A tale of two trees: Parse Trees, ASTs</h2>
+<h2 id="stages">Stages</h2>
 
 <p>
   This document builds a parser in JavaScript so that it can run in
-  your browser.
+  your browser.  You can see below that the parser operates in four
+  stages:
 </p>
+
+<div>
+<ol class="slideshow" style="width: 20em; min-height: 11em"
+    id="staging-slideshow">
+  <li><h4 class="no-toc">Source Text</h4>
+    &ldquo;<code><span data-ss-id="0">f</span><!--
+      --><span data-ss-id="1">(</span><!--
+      --><span data-ss-id="2">x</span><!--
+      --><span data-ss-id="3"> </span><!--
+      --><span data-ss-id="4">+</span><!--
+      --><span data-ss-id="5"> </span><!--
+      --><span data-ss-id="6">y</span><!--
+      --><span data-ss-id="7">)</span><!--
+      --><span data-ss-id="8">;</span></code>&rdquo;
+  <li><h4 class="no-toc">Tokens</h4>
+    <span class="token" data-ss-id="0">f</span>
+    <span class="token" data-ss-id="1">(</span>
+    <span class="token" data-ss-id="2">x</span>
+    <span class="token" data-ss-id="3"> </span>
+    <span class="token" data-ss-id="4">+</span>
+    <span class="token" data-ss-id="5"> </span>
+    <span class="token" data-ss-id="6">y</span>
+    <span class="token" data-ss-id="7">)</span>
+    <span class="token" data-ss-id="8">;</span>
+  <li><h4 class="no-toc">Parse Tree</h4>
+    <span class="tnode" data-ss-id="9">
+      <span class="tnode" data-ss-id="10">
+        <span class="tnode" data-ss-id="11">
+          <span class="tleaf" data-ss-id="0">f</span>
+        </span>
+        <span class="tleaf" data-ss-id="1">(</span>
+        <span class="tnode" data-ss-id="12">
+          <span class="tnode" data-ss-id="13">
+            <span class="tleaf" data-ss-id="2">x</span>
+          </span>
+          <span class="tleaf" data-ss-id="4">+</span>
+          <span class="tnode" data-ss-id="14">
+            <span class="tleaf" data-ss-id="6">y</span>
+          </span>
+        </span>
+        <span class="tleaf" data-ss-id="7">)</span>
+      </span>
+      <span class="tleaf" data-ss-id="8">;</span>
+    </span>
+  <li><h4 class="no-toc">Abstract Syntax Tree</h4>
+    <div class="ast" data-ss-id="9"><span class="type">stmt</span>
+      <div class="ast"><span class="type">expr</span>
+        <div class="ast" data-ss-id="10"><span class="type">call</span>
+          <div class="ast"><span class="type">expr</span>
+            <div class="ast" data-ss-id="11"><span class="type">id</span>
+              <span class="astleaf" data-ss-id="0">f</span>
+            </div>
+          </div>
+          <div class="ast"><span class="type">actuals</span>
+            <div class="ast"><span class="type">expr</span>
+              <div class="ast" data-ss-id="12"><span class="type">binaryop</span>
+                <div class="ast"><span class="type">expr</span>
+                  <div class="ast" data-ss-id="13"><span class="type">id</span>
+                    <span class="astleaf" data-ss-id="2">x</span>
+                  </div>
+                </div>
+                <span class="astleaf" data-ss-id="4">+</span>
+                <div class="ast"><span class="type">expr</span>
+                  <div class="ast" data-ss-id="14"><span class="type">id</span>
+                    <span class="astleaf" data-ss-id="6">y</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+</ol>
+</div>
+
+<script>
+  animateSlideShows();
+  document.getElementById('staging-slideshow').autorunSlideShow();
+</script>
 
 <p>
   Before jumping into code, it's worth defining some terms.
@@ -5022,7 +5109,16 @@ function flattenParseTreeToPseudoTokens(parseTree) {
   anything.
 </p>
 
-<p>Here are the combinator definitions, but </p>
+<p>
+  There's nothing novel about the combinator definitions, so if you
+  already know how combinator libraries tend to work, you can gloss
+  over them without missing much.  The main thing to note is that they
+  don't use side-effects to build a parse tree.  Combinators read an
+  input buffer containing a flattened parse tree and build a flattened
+  AST by appending to an output buffer which is then
+  &ldquo;lifted&rdquo; into a proper tree in a reverse of the flatten
+  function used above.
+</p>
 
 <details>
   <summary>Definitions of combinators</summary>

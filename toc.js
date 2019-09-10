@@ -5,6 +5,9 @@ function populateTableOfContents() {
     let embedLevel = 2;
     const lis = html.join(Array.from(document.querySelectorAll('h2, h3, h4')).map(
       (hdr) => {
+	if (hdr.classList.contains('no-toc')) {
+	  return '';
+	}
         let { textContent, id } = hdr;
         const level = +hdr.nodeName.substring(1);  // 2 for 'h2'
         if (!id) {
