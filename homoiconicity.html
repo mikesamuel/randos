@@ -782,9 +782,23 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 </table>
 
 <p>
-  Simplifying large grammars by replacing similar constructs
-  with <i>cover grammar</i>s allow a few error recovery strategies
-  tuned to programmers' intuitions to carry much weight.
+  A <i>cover grammar</i> for two grammar rules matches all strings
+  matched by either rule so that a later pass can disambiguate.
+  For example, consider the JavaScript expression
+  <code class="prettyprint">(a = null) =&gt; (a = null)</code>.  In
+  it, <code class="prettyprint">(a = null)</code> appears twice, once
+  as a formal parameter list with a default value, and once as an
+  assignment.  To avoid reparsing based on whether a
+  <code>=&gt;</code> follows the close parenthesis, JavaScript
+  engines often use a cover grammar for the <i>FormalParameterList</i>
+  and <i>PrimaryExpression</i> rules.
+</p>
+
+<p>
+  We can rephrase developers' intuitions about a language by
+  crafting a few rules that cover the myriad rules in the full grammar.
+  This lets a few error recovery strategies tuned to programmers'
+  intuitions to carry much weight.
 </p>
 
 <p>
@@ -814,7 +828,7 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 </p>
 
 <p>
-  A cover grammar for C++-like flow control constructs is:
+  A cover grammar for C-like flow control constructs is:
 </p>
 
 <table class="grammar" id="cover-grammar">
@@ -852,8 +866,8 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 </p>
 
 <p>
-  Before jumping into code, it's worth defining some
-  terms for the purposes of this document:
+  Before jumping into code, it's worth defining some terms.
+  For the purposes of this document:
 </p>
 
 <dl>
