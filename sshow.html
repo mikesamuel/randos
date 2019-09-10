@@ -1,0 +1,439 @@
+<link rel="stylesheet" href="common.css" />
+<script
+  src="https://code.jquery.com/jquery-3.4.1.min.js"
+  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+  crossorigin="anonymous"></script>
+
+<style>
+  .token, script.visible, .tleaf, .input, .term {
+      font-family: "Inconsolata", "Consolas", "Lucida Console", "Monaco", monospace
+  }
+  .input:before, .input:after, .token:after, .token:before, summary > .tree:before,
+  .tleaf:before, .tleaf:after, pre.hoisted:before {
+      font-family: "Noto Sans", "Lucida Grande", "Lucida Sans", "Segoe UI", "Verdana", sans-serif;
+  }
+
+  .token { border: 1px solid dotted; background: #eee; white-space: nowrap }
+  .token.synthetic { font-style: italic }
+  .input { display: inline-block; white-space: pre }
+  .input:before { content: "Input: \201c" }
+  .input:after { content: "\201d" }
+  .tokens:before { content: "Tokens: " }
+  #tio-table .tokens:before { content: "" }
+  dl > dt:after, .token:after { content: "\201d" }
+  dl > dt:before, .token:before { content: "\201c" }
+  summary > .tree:before { content: "Tree: " }
+  .tree { white-space: pre-wrap }
+  .expected:before { content: "Wanted: " }
+  .testcase.fail {
+      border: 1px solid red;
+  }
+  .testcase {
+      margin: .5em;
+      border: 1px dotted black;
+      padding: .25em;
+  }
+
+  script.visible {
+      display: block; white-space: pre; border: 1px solid black
+  }
+
+  pre.hoisted {
+      position: relative;
+  }
+  pre.hoisted:before {
+      content: "Hoisted code";
+      display: block;
+      position: absolute;
+      left: -.8em;
+      top: -1.6em;
+      font-size: 8px;
+      border: 1px solid #444;
+      padding: 2px;
+      line-height: 1.2em;
+      background: #ddf;
+      color: #444;
+      font-weight: bolder;
+  }
+
+  #teststatus.failures { color: red }
+
+  .problem-tokens { border-bottom: 3px dotted red; display: inline-block; background: #fcc }
+
+  .padded { min-width: 1em; display: inline-block; text-align: center }
+
+  .grammar sub { font-size: 50% }
+
+  .tnode { display:inline-block; border: 1px solid green; margin: 2px }
+  .tleaf:before { content: "\201c" }
+  .tleaf:after { content: "\201d" }
+
+  div.ast {
+      display: inline-block; border: 1px solid green; margin: .5em 4px 4px 4px;
+      position: relative;
+      line-height: normal;
+  }
+  div.ast > span.type {
+      position: absolute; top: -.5em ;
+      line-height: normal; padding: 0 2px 0 2px;
+      font-size: 8px;
+  }
+  span.type {
+      color: green; background: white;
+  }
+  div.ast.garbage {
+      border: 1px dashed red;
+      max-width: 12em;
+  }
+  div.ast.garbage > span.type { color: red; font-style: italic }
+  div.quasi > span.type, span.type.quasi {
+      /* Color quasi quotations as ice-like */
+      background: #a5f2f3;
+  }
+
+  table.grammar tr > td:nth-child(2) { text-align: right }
+  table.grammar, table.grammar td, table.grammar th { border: none }
+  table.grammar tr { background-color: transparent }
+  .nonterm:before { content: "<" }
+  .nonterm:after { content: ">" }
+  .nonterm { font-style: italic }
+  .term:before { content: "\201c" }
+  .term:after { content: "\201d" }
+
+  #tio-input { white-space: pre-wrap }
+
+  /* parts of speech */
+  .pos-stmt { background: #fbb; border: 3px solid red }
+  .pos-type { background: #bbf; border: 3px dashed blue }
+  .pos-expr { background: #ff8; border: 3px double #9b870c }
+
+  body.has-failures {
+      border: 3px dashed red;
+  }
+
+  button.copy-to-tio { float: right }
+
+
+  #flattening-example-table tr { background-color: transparent }
+  #flattening-example-table td {
+      border: 0; text-align: center;
+      font-family: "Inconsolata", "Consolas", "Lucida Console", "Monaco", monospace;
+  }
+
+  dl > dt { font-style: italic }
+
+  .slideshow > li > h4 {
+      margin: 0; padding: 0
+  }
+</style>
+
+<body>
+<ol class="slideshow" style="min-width: 20em; min-height: 11em">
+  <li><h4>Source Text</h4>
+    &ldquo;<code><span data-ss-id="0">f</span><!--
+      --><span data-ss-id="1">(</span><!--
+      --><span data-ss-id="2">x</span><!--
+      --><span data-ss-id="3"> </span><!--
+      --><span data-ss-id="4">+</span><!--
+      --><span data-ss-id="5"> </span><!--
+      --><span data-ss-id="6">y</span><!--
+      --><span data-ss-id="7">)</span><!--
+      --><span data-ss-id="8">;</span></code>&rdquo;
+  <li><h4>Tokens</h4>
+    <span class="token" data-ss-id="0">f</span>
+    <span class="token" data-ss-id="1">(</span>
+    <span class="token" data-ss-id="2">x</span>
+    <span class="token" data-ss-id="3"> </span>
+    <span class="token" data-ss-id="4">+</span>
+    <span class="token" data-ss-id="5"> </span>
+    <span class="token" data-ss-id="6">y</span>
+    <span class="token" data-ss-id="7">)</span>
+    <span class="token" data-ss-id="8">;</span>
+  <li><h4>Parse Tree</h4>
+    <span class="tnode" disabled-data-ss-id="9">
+      <span class="tnode" disabled-data-ss-id="10">
+        <span class="tnode" disabled-data-ss-id="11">
+          <span class="tleaf" data-ss-id="0">f</span>
+        </span>
+        <span class="tleaf" data-ss-id="1">(</span>
+        <span class="tnode" disabled-data-ss-id="12">
+          <span class="tnode" disabled-data-ss-id="13">
+            <span class="tleaf" data-ss-id="2">x</span>
+          </span>
+          <span class="tleaf" data-ss-id="4">+</span>
+          <span class="tnode" disabled-data-ss-id="14">
+            <span class="tleaf" data-ss-id="6">y</span>
+          </span>
+        </span>
+        <span class="tleaf" data-ss-id="7">)</span>
+      </span>
+      <span class="tleaf" data-ss-id="8">;</span>
+    </span>
+  <li><h4>Abstract Syntax Tree</h4>
+    <div class="ast" disabled-data-ss-id="9"><span class="type">stmt</span>
+      <div class="ast"><span class="type">expr</span>
+        <div class="ast" disabled-data-ss-id="10"><span class="type">call</span>
+          <div class="ast"><span class="type">expr</span>
+            <div class="ast" disabled-data-ss-id="11"><span class="type">id</span>
+              <span class="astleaf" data-ss-id="0">f</span>
+            </div>
+          </div>
+          <div class="ast"><span class="type">actuals</span>
+            <div class="ast"><span class="type">expr</span>
+              <div class="ast" disabled-data-ss-id="12"><span class="type">binaryop</span>
+                <div class="ast"><span class="type">expr</span>
+                  <div class="ast" disabled-data-ss-id="13"><span class="type">id</span>
+                    <span class="astleaf" data-ss-id="2">x</span>
+                  </div>
+                </div>
+                <span class="astleaf" data-ss-id="4">+</span>
+                <div class="ast"><span class="type">expr</span>
+                  <div class="ast" disabled-data-ss-id="14"><span class="type">id</span>
+                    <span class="astleaf" data-ss-id="6">y</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+</ol>
+
+<style>
+  ol.active-slideshow {
+      display: inline-block;
+      border: 1px solid black;
+      padding: .5em;
+      position: relative;
+  }
+  ol.active-slideshow > li {
+      display: block;
+      position: absolute;
+      visibility: hidden;
+  }
+  ol.active-slideshow > li.selected {
+      visibility: visible
+  }
+  ol.slideshow > button.fwd {
+      float: right
+  }
+</style>
+
+
+<script>
+  // Name of an attribute used to relate elements across slides.
+  const dataSsId = 'data-ss-id';
+  function animateSlideShows() {
+    for (const listElement of document.querySelectorAll('ol.slideshow')) {
+      animateSlideShow(listElement);
+    }
+  }
+  function animateSlideShow(listElement) {
+    let slides = [...listElement.childNodes]
+        .filter((x) => x.nodeType === 1 && x.nodeName === 'LI');
+    if (!slides.length) { return; }
+    slides[0].classList.add('selected');
+
+    let revButton = document.createElement('button');
+    revButton.onclick = () => transitionBy(-1);
+    revButton.textContent = '\xab'
+    revButton.classList.add('rev');
+    let fwdButton = document.createElement('button');
+    fwdButton.onclick = () => transitionBy(1);
+    fwdButton.textContent = '\xbb'
+    fwdButton.classList.add('fwd');
+
+    listElement.insertBefore(revButton, slides[0]);
+    listElement.insertBefore(fwdButton, slides[0]);
+    listElement.classList.add('active-slideshow');
+
+
+    let finishTransitionInProgress = () => {};
+
+    function transitionBy(delta) {
+      finishTransitionInProgress();
+      finishTransitionInProgress = () => {};
+
+      let selectedSlideIndex = 0;
+      const nSlides = slides.length;
+      for (let i = 0; i < nSlides; ++i) {
+        const slide = slides[i];
+        if (slide.classList.contains('selected')) {
+          selectedSlideIndex = i;
+          break;
+        }
+      }
+
+      let newSelectedSlideIndex = selectedSlideIndex + delta;
+      while (newSelectedSlideIndex >= nSlides) {
+        newSelectedSlideIndex -= nSlides;
+      }
+      while (newSelectedSlideIndex < 0) {
+        newSelectedSlideIndex += nSlides;
+      }
+      if (!(selectedSlideIndex - newSelectedSlideIndex)) {
+        return;
+      }
+
+      const newSelectedSlide = slides[newSelectedSlideIndex];
+      const oldSelectedSlide = slides[selectedSlideIndex];
+      newSelectedSlide.classList.add('selected');
+      animateTransition(
+        oldSelectedSlide,
+        newSelectedSlide,
+        () => {
+          oldSelectedSlide.classList.remove('selected');
+        });
+    }
+
+    // Given two HTML elements, finds subtrees with common
+    // data-ss-ids.  Then fades out elements in the src and fades in
+    // elements in the dest, but with identified elements under src
+    // transitioning to the corresponding location in dest.
+    //
+    // Then is called when the transition is complete, or if another
+    // transition starts to interrupt the current one.
+    function animateTransition(src, dest, then) {
+      finishTransitionInProgress = then;
+
+      // Identify common ss-ids.
+      let srcSsIds = new Set(
+        [...src.querySelectorAll(`*[${ dataSsId }]`)]
+          .map(x => x.getAttribute(dataSsId)));
+      let commonSsIds = new Set(
+        [...dest.querySelectorAll(`*[${ dataSsId }]`)]
+          .map(x => x.getAttribute(dataSsId))
+          .filter(x => srcSsIds.has(x)));
+
+      let pairsToMove = new Map();
+      for (const ssId of commonSsIds) {
+        pairsToMove.set(ssId, [null, null]);
+      }
+      for (const [root, idx] of [[src, 0], [dest, 1]]) {
+        for (const ided of [...root.querySelectorAll(`*[${ dataSsId }]`)]) {
+          const ssId = ided.getAttribute(dataSsId);
+          if (commonSsIds.has(ssId)) {
+            pairsToMove.get(ssId)[idx] = {
+              el: ided,
+            };
+          }
+        }
+      }
+      pairsToMove = [...pairsToMove.values()];
+
+      // Sort so that we move containers before contained.
+      pairsToMove.sort(
+        ([{ el: sa }, { el: sb }], [{ el: da }, { el: db }]) => {
+          // 6 is a bitset consisting of preceding/following
+          switch (sa.compareDocumentPosition(da) & 6) {
+          case 2: return 1;
+          case 4: return -1;
+          }
+          switch (sb.compareDocumentPosition(db) & 6) {
+          case 2: return 1;
+          case 4: return -1;
+          }
+          return 0;
+        });
+
+      for (const infos of pairsToMove) {
+        for (const info of infos) {
+          info.pos = $(info.el).offset();
+          info.pos.width = info.el.offsetWidth;
+          info.pos.height = info.el.offsetHeight;
+          info.centroid = {
+            x: info.pos.left + info.pos.width / 2,
+            y: info.pos.top + info.pos.height / 2,
+          };
+          info.el.style.position = 'relative';
+        }
+      }
+
+      let intervalId = null;
+      finishTransitionInProgress = () => {
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        try {
+          then();
+        } finally {
+          // Reset all style overrides
+          src.style.opacity = dest.style.opacity = '';
+          for (const [
+            { el: { style: srcStyle } },
+            { el: { style: destStyle } }
+          ] of pairsToMove) {
+            srcStyle.position = destStyle.position =
+              srcStyle.top = destStyle.top =
+              srcStyle.left = destStyle.left =
+              srcStyle.width = destStyle.width =
+              srcStyle.height = destStyle.height = '';
+          }
+        }
+      };
+
+      let stepsDone = 0;
+      const stepTotal = 10;
+
+      function doStep(ratio) {
+        const dRatio = 1 - ratio;
+        src.style.opacity = dRatio;
+        dest.style.opacity = ratio;
+        for (const [
+          { el: srcEl, pos: srcPos, centroid: srcCentroid },
+          { el: destEl, pos: destPos, centroid: destCentroid },
+        ] of pairsToMove) {
+          const centroidX = srcCentroid.x * dRatio + destCentroid.x * ratio;
+          const centroidY = srcCentroid.y * dRatio + destCentroid.y * ratio;
+          const w = srcPos.width  * dRatio + destPos.width  * ratio;
+          const h = srcPos.height * dRatio + destPos.height * ratio;
+          moveTo(srcEl,  centroidX, centroidY, w, h);
+          moveTo(destEl, centroidX, centroidY, w, h);
+        }
+      }
+      doStep(0);
+
+      intervalId = setInterval(
+        () => {
+          const ratio = stepsDone / stepTotal;
+          ++stepsDone;
+          try {
+            doStep(ratio);
+          } finally {
+            if (stepsDone >= stepTotal) {
+              finishTransitionInProgress();
+              finishTransitionInProgress = () => {};
+            }
+          }
+        },
+        100
+      );
+    }
+  }
+
+  // Courtesy http://javascript.info/coordinates
+  function getCoords(elem) {
+    let box = elem.getBoundingClientRect();
+
+    return {
+      top: box.top + pageYOffset,
+      left: box.left + pageXOffset,
+      width: elem.offsetWidth,
+      height: elem.offsetHeight,
+    };
+  }
+
+  function moveTo(el, cx, cy, w, h) {
+    const { style } = el;
+    style.height = `${ h }px`;
+    style.width = `${ w }px`;
+
+    let left = cx - w / 2;
+    let top = cy - h / 2;
+    $(el).offset({ left, top });
+  }
+
+  animateSlideShows();
+</script>
