@@ -728,8 +728,8 @@ ${ formatOutput(got, 'actual') }`;
     Extends the toy language with <i>quasiquotation</i> syntax,
   </li>
   <li>
-    <i>Advises</i> language implementors on how to craft a grammar to
-    enable this approach.
+    <i>Suggests</i> ways language implementors can craft a grammar to
+    take full advantage of this approach.
   </li>
 </ul>
 
@@ -784,36 +784,38 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 </p>
 
 <table class="grammar">
-  <tr><td><span class="nonterm">Statement</span><td>::==<td><span><span class="nonterm">keyword</span> <span class="term">(</span> <span class="nonterm">Stuff</span> <span class="term">)</span> <span class="term">{</span> <span class="nonterm">Stuff</span> <span class="term">}</span> &hellip;</tr>
+  <tr><td><span class="nonterm">Statement</span><td>::==<td><span><span class="nonterm">keyword</span> <i>[</i> <span class="term">(</span> <span class="nonterm">Stuff</span> <span class="term">)</span> <i>]</i> <span class="term">{</span> <span class="nonterm">Stuff</span> <span class="term">}</span> &hellip; </tr>
 </table>
 
 <p>
-  A <i>cover grammar</i> for two grammar rules matches all strings
-  matched by either rule so that a later pass can disambiguate.
-  For example, consider the JavaScript expression
-  <code class="prettyprint">(a = null) =&gt; (a = null)</code>.  In
-  it, <code class="prettyprint">(a = null)</code> appears twice, once
-  as a formal parameter list with a default value, and once as an
+  A <i>cover grammar</i> is a grammar that matches all strings matched by
+  some &ldquo;covered&rdquo; grammars so that a later pass can
+  disambiguate between them.  For example, consider the JavaScript
+  expression <code class="prettyprint">(a = null) =&gt; (a = null)</code>.
+  In it, <code class="prettyprint">(a = null)</code> appears twice,
+  once as a formal parameter list with a default value, and once as an
   assignment.  To avoid reparsing based on whether a
   <code>=&gt;</code> follows the close parenthesis, JavaScript
-  engines often use a cover grammar for the <i>FormalParameterList</i>
-  and <i>PrimaryExpression</i> rules.
+  engines often use a cover grammar for <i>FormalParameterList</i>
+  and <i>PrimaryExpression</i>.
 </p>
 
 <p>
-  We can rephrase developers' intuitions about a language by
+  We can formalize developers' intuitions about a language by
   crafting a few rules that cover the myriad rules in the full grammar.
   This lets a few error recovery strategies tuned to programmers'
-  intuitions to carry much weight.
+  intuitions carry much weight.
 </p>
 
 <p>
-  Each of the statement types above looks like a function application
-  followed by a block, but there are a some conventions which
-  distinguish these from normal function calls.
+  Each of the branches for <span class="nonterm">Statement</span>
+  above looks like a function application followed by a block, but
+  there are a some conventions which distinguish these from normal
+  function calls.
 </p>
 
 <ul>
+  <li>They start with a reserved keyword.</li>
   <li>Declarations inside the parentheses, when allowed, are visible
   within the curly bracket block (<code>{&hellip;}</code>).</li>
   <li>Declarations in either are not visible outside the
@@ -834,7 +836,7 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 </p>
 
 <p>
-  A cover grammar for C-like flow control constructs is:
+  Most C-like flow control constructs can be covered by a single rule:
 </p>
 
 <table class="grammar" id="cover-grammar">
@@ -848,19 +850,10 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 <tr><td><span class="nonterm">InfixKeyword</span></td>    <td>::==<td><span class="term">else</span> <span class="term">if</span> / <span class="term">else</span> / <span class="term">catch</span> / <span class="term">finally</span>;</tr>
 </table>
 
-<p><a href="#wrinkle1">Not</a> <a href="#wrinkle2">all</a> follow this convention but
-<a href="#parsing-statements">many do</a>.</p>
-
-
 <p>
-  This document's focuses on extensibility of statement level
-  constructs, but it briefly discusses
-  <a href="#custom-expression-operators">custom expression operators</a>
-  as a way of using small number of rules to enable extensible
-  expression grammars.  This document later outlines two
-  <a href="#code-as-data">quasiquotation</a> mechanisms.
-  Finally the document discusses <a href="#limitations">limitations</a>
-  of this approach.
+  <a href="#wrinkle1">Not</a> <a href="#wrinkle2">all</a> follow this convention but
+  <a href="#parsing-statements">many do</a>, and below we detail how to handle exceptions
+  to the rule.
 </p>
 
 
@@ -868,14 +861,14 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 
 <p>
   This document builds a parser in JavaScript so that it can run in
-  your browser.  You can see below that the parser operates in four
+  your browser.  You can see below that the parser operates in three
   stages:
 </p>
 
 <div>
 <ol class="slideshow" style="width: 20em; min-height: 11em"
     id="staging-slideshow">
-  <li><h4 class="no-toc">Source Text</h4>
+  <li><h4 class="no-toc">Input: Source Text</h4>
     &ldquo;<code><span data-ss-id="0">f</span><!--
       --><span data-ss-id="1">(</span><!--
       --><span data-ss-id="2">x</span><!--
@@ -885,7 +878,7 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
       --><span data-ss-id="6">y</span><!--
       --><span data-ss-id="7">)</span><!--
       --><span data-ss-id="8">;</span></code>&rdquo;
-  <li><h4 class="no-toc">Tokens</h4>
+  <li><h4 class="no-toc">Lexical Phase: Source Text &rarr; Tokens</h4>
     <span class="token" data-ss-id="0">f</span>
     <span class="token" data-ss-id="1">(</span>
     <span class="token" data-ss-id="2">x</span>
@@ -895,7 +888,7 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
     <span class="token" data-ss-id="6">y</span>
     <span class="token" data-ss-id="7">)</span>
     <span class="token" data-ss-id="8">;</span>
-  <li><h4 class="no-toc">Parse Tree</h4>
+  <li><h4 class="no-toc">Parse Phase: Tokens &rarr; Parse Tree</h4>
     <span class="tnode" data-ss-id="9">
       <span class="tnode" data-ss-id="10">
         <span class="tnode" data-ss-id="11">
@@ -915,7 +908,7 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
       </span>
       <span class="tleaf" data-ss-id="8">;</span>
     </span>
-  <li><h4 class="no-toc">Abstract Syntax Tree</h4>
+  <li><h4 class="no-toc">Final Phase: Parse Tree &rarr; Abstract Syntax Tree</h4>
     <div class="ast" data-ss-id="9"><span class="type">stmt</span>
       <div class="ast"><span class="type">expr</span>
         <div class="ast" data-ss-id="10"><span class="type">call</span>
@@ -967,7 +960,8 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
   <dt>Significant token</dt>
   <dd>A token that is not a comment or ignorable whitespace.</dd>
 
-  <dt>Parse Tree (CST)</dt>
+  <dt>Parse Tree</dt>
+  <dt>Concrete Syntax Tree (CST)</dt>
   <dd>
     A tree such that leaves are tokens and a preorder enumeration of
     leaves yields the significant tokens from which it was parsed.
@@ -1012,11 +1006,12 @@ if ( x ) { fn<span class="problem-tokens">(</span>; }
 <h2 id="precedence">Precedence</h2>
 
 <p>
-  Operator precedence parsers reuse a few simple rules and an operator
-  precedence grammar can embed
-  <a href="#programmer-intuitions">programmers' intuitions</a> about
-  the meaning of broken inputs.  Instead of having grammar rules for
-  every construct, you just have a few:
+  Operator precedence parsers reuse a few simple rules.  It's
+  straightforward to craft such a parser to produce a parse tree for
+  every input so they recover well from many kinds of syntax errors.
+  Instead of having a grammar rule for each language construct, an
+  operator precedence parser behaves like a grammar driven parser with
+  just one rule per kind of operator:
 </p>
 
 <table class="grammar" id="operand-grammar">
