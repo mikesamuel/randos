@@ -7192,35 +7192,52 @@ const toyLanguageGrammar = new combinators.Grammar(
 </p>
 
 <pre class="prettyprint">
-before();
+outerBefore();
 {
+  innerBefore();
   <u>f(a/2*'3');</u>
+  innerAfter();
 }
-after();
+outerAfter();
 </pre>
 
 <p>
-  We generate programs after removing every possible substring of the
-  underlined portion, and test several properties:
+  This benchmark code fragment was crafted to include a variety of token types,
+  and so that some mutations would introduce new token types like comments and
+  regular expression literals.
+</p>
+
+<p>
+  For each possible substring of the underlined portion, we parse a
+  program having removed that substring from the benchmark, and test
+  several properties of the resulting AST:
 </p>
 <ul>
-  <li>hasBefore: Does the AST contain a call to <code>before</code>?</li>
-  <li>hasAfter: Does the AST contain a call to <code>after</code>?</li>
-  <li>hasError: Does the AST contain an error <code>node</code>?</li>
+  <li>has outer before: Does the AST contain a call to <code>outerBefore</code>?</li>
+  <li>has inner before: Does the AST contain a call to <code>innerBefore</code>?</li>
+  <li>has inner after: Does the AST contain a call to <code>innerAfter</code>?</li>
+  <li>has outer after: Does the AST contain a call to <code>outerAfter</code>?</li>
+  <li>has error: Does the AST contain an error <code>node</code>?</li>
 </ul>
 
 <table id="resilience-stats">
   <thead>
-    <tr><th>hasBefore<th>hasAfter<th>hasError</thead>
+    <tr>
+      <th>has outer before<th>has inner before</th>
+      <th>has inner after<th>has outer after<th>has error</thead>
   <tbody>
 </table>
 
 <p>
-  The parser seems to reliably parse statements before the mutated statement.
-  The parser fairly reliably parses statements afterwards, but is not perfect
-  since removing the substring <code>b</code> merges the <code>/</code>
-  and <code>*</code> into the start of a <code>/* block comment */</code>.
-  This is despite the fact that about &frac34; have errors.
+  The parser reliably parses statements before the mutated statement and in a
+  different block.
+  The parser fairly reliably parses statements after the end of the block,
+  and in the same block but before, but is not perfect;
+  removing the substring &ldquo;<code>2</code>&rdquo; produces
+  <code class="prettyprint"><u>f(a/*'3');</u></code> and the block comment consumes
+  everything after it.
+  The parser has mixed success parsing statements that occur after the mutated
+  statement in the same block.
 </p>
 
 <script>
@@ -7233,8 +7250,7 @@ test(
       const { ast: [ ast ] } = toyLanguageGrammar.apply('program', flatParseTree);
 
       let result = {
-        hasBefore: false,
-        hasAfter: false,
+        calls: new Set(),
         hasError: false,
       };
 
@@ -7242,14 +7258,7 @@ test(
         if (ast.type === 'id'
             && ancTypes[ancTypes.length - 1] === 'expr'
             && ancTypes[ancTypes.length - 2] === 'call') {
-          switch (ast.children[0].tok) {
-          case 'before':
-            result.hasBefore = true;
-            break;
-          case 'after':
-            result.hasAfter = true;
-            break;
-          }
+          result.calls.add(ast.children[0].tok);
         }
         if (ast.discards) {
           result.hasError = true;
@@ -7265,39 +7274,41 @@ test(
       }
       walk(ast);
 
-      if (!result.hasAfter) {
-        console.log(code);
-      }
-
       return result;
     }
 
     console.group('resilience');
     const testCodeLines = [
-      'before();',
+      'outerBefore();',
       '{',
+      '  innerBefore();',
       '  f(a/2*\'3\');',
+      '  innerAfter();',
       '}',
-      'after();',
+      'outerAfter();',
     ];
 
     let testCount = 0;
-    let hasBeforeCount = 0;
-    let hasAfterCount = 0;
+    let hasOuterBeforeCount = 0;
+    let hasInnerBeforeCount = 0;
+    let hasInnerAfterCount = 0;
+    let hasOuterAfterCount = 0;
     let hasErrorCount = 0;
 
     try {
-      const line2 = testCodeLines[2];
-      const lineLen = line2.length;
+      const line3 = testCodeLines[3];
+      const lineLen = line3.length;
       for (let i = 0; i < lineLen - 1; ++i) {
         for (let j = i ? i + 1 : 0; j < lineLen; ++j) {
-          testCodeLines[2] = line2.substring(0, i) + line2.substring(j);
+          testCodeLines[3] = line3.substring(0, i) + line3.substring(j);
           const {
-            hasBefore, hasAfter, hasError,
+            calls, hasError,
           } = doOneTest(testCodeLines.join('\n'));
           ++testCount;
-          if (hasBefore) { ++hasBeforeCount; }
-          if (hasAfter) { ++hasAfterCount; }
+          if (calls.has('outerBefore')) { ++hasOuterBeforeCount; }
+          if (calls.has('innerBefore')) { ++hasInnerBeforeCount; }
+          if (calls.has('innerAfter')) { ++hasInnerAfterCount; }
+          if (calls.has('outerAfter')) { ++hasOuterAfterCount; }
           if (hasError) { ++hasErrorCount; }
         }
       }
@@ -7306,20 +7317,26 @@ test(
       }
       document.querySelector('#resilience-stats > tbody').innerHTML = html`
         <tr>
-          <td>${ pct(hasBeforeCount, testCount) }</td>
-          <td>${ pct(hasAfterCount,  testCount) }</td>
-          <td>${ pct(hasErrorCount,  testCount) }</td>
+          <td>${ pct(hasOuterBeforeCount, testCount) }</td>
+          <td>${ pct(hasInnerBeforeCount, testCount) }</td>
+          <td>${ pct(hasInnerAfterCount,  testCount) }</td>
+          <td>${ pct(hasOuterAfterCount,  testCount) }</td>
+          <td>${ pct(hasErrorCount,       testCount) }</td>
         </tr>`;
 
       const want = {
-        hasBefore: 79,
-        hasAfter:  78,
+        hasOuterBefore: 79,
+        hasInnerBefore: 78,
+        hasInnerAfter:  46,
+        hasOuterAfter:  78,
         hasError:  59,
         testCount: 79,
       };
       const got = {
-        hasBefore: hasBeforeCount,
-        hasAfter: hasAfterCount,
+        hasOuterBefore: hasOuterBeforeCount,
+        hasInnerBefore: hasInnerBeforeCount,
+        hasInnerAfter: hasInnerAfterCount,
+        hasOuterAfter: hasOuterAfterCount,
         hasError: hasErrorCount,
         testCount,
       };
