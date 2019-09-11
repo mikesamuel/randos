@@ -3458,6 +3458,50 @@ starts, which would allow it to be done during
     </blockquote>
 </ul>
 
+<h3 id="asi-alternatives">Alternatives</h3>
+
+<p>
+  It is possible to reconcile these seemingly contradictory claims:
+</p>
+
+<ul>
+  <li>The language should specify ASI to make it easier for authors
+    (especially novices) to produce programs.</li>
+  <li>The language's compiler/interpreter should not perform ASI
+    since it is a source of subtle bugs and makes careful reading
+    of code difficult.</li>
+</ul>
+
+<p>
+  Language designers could leave ASI to developer tools while
+  specifying how ASI should be done, and commit to backwards
+  compatibility with that scheme.
+</p>
+
+<p>
+  Specifically:
+</p>
+<ul>
+  <li>
+    IDE on-save hooks could perform ASI relieving the author of the
+    burden of writing them, but making them explicit in the source
+    text.
+  </li>
+  <li>Code syntax highlighters could de-emphasize (via lower-contrast
+    coloring) semicolons that would be inserted by such hooks were
+    they not present, reducing the cognitive burden on readers
+    concerned with intent over semantics.
+  </li>
+</ul>
+
+<p>
+  Both are easier if ASI is lexical, not syntactic.
+</p>
+
+<p>
+  ASI is later discussed in <a href="#suggestions">suggestions</a> for
+  language designers.
+</p>
 
 <h2 id="custom-expression-operators">Custom Expression Operators</h2>
 
