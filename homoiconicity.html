@@ -7849,12 +7849,21 @@ structure of <code>if</code> need to have their own entry in the precedence tabl
 
 <h3 id="else-else-if">Else Else If</h3>
 
-<p>The <a href="#cover-grammar">cover grammar</a> allows <code>else
-if</code> to follow <code>else</code> which might introduce some
-shift-reduce style problems.  This may be corrigible by
-tweaking <code>canNest</code> with respect to a prefix <code>if</code> and
-infix <code>else</code> or by recognizing <code>else if</code> as a separate,
-two token infix operator.</p>
+<p>
+  The <a href="#cover-grammar">cover grammar</a> allows
+  <code>else if</code> to follow <code>else</code> which might
+  introduce some shift-reduce style problems.  This may be corrigible
+  by tweaking <code>canNest</code> with respect to a
+  prefix <code>if</code> and infix <code>else</code> or by
+  recognizing <code>else if</code> as a separate, two token infix
+  operator in <i>preparseTokens</i> as for Python-esque
+  <tt>not in</tt> and <tt>is not</tt>.
+</p>
+
+<p>
+  This is not a problem when the language requires brackets around
+  <tt>if</tt> bodies as the toy language does.
+</p>
 
 <script>
   counterExample(
