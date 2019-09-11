@@ -3472,7 +3472,7 @@ starts, which would allow it to be done during
     of code difficult.</li>
 </ul>
 
-<p>
+<p id="tool-inserted-semicolons">
   Language designers could leave ASI to developer tools while
   specifying how ASI should be done, and commit to backwards
   compatibility with that scheme.
@@ -3518,8 +3518,9 @@ shows one way of providing for user-defined infix expression operators.</p>
 <p>It's unsurprising that operation precedence parsers can handle user defined
   operators with different precedences.</p>
 
-<script>
-  const scalaesqueOperatorSet = new class ScalaesqueOperatorSet extends OperatorSet {
+<script class="visible">
+const scalaesqueOperatorSet =
+  new class ScalaesqueOperatorSet extends OperatorSet {
     constructor(fallbackOperatorSet) {
       super();
       this.fallbackOperatorSet = fallbackOperatorSet;
@@ -3553,11 +3554,14 @@ shows one way of providing for user-defined infix expression operators.</p>
     }
   }(operatorSet);
 
-  const scalaesqueParser = makeParser(scalaesqueOperatorSet, canNest);
+const scalaesqueParser = makeParser(scalaesqueOperatorSet, canNest);
 </script>
 
-<p>Now, if user code wanted to use <code>&lt;=&gt;</code> as a trinary comparison operator with
-  precedence similar to <code>&lt;</code>, it can:</p>
+<p>
+  Now, if user code wanted to use <code>&lt;=&gt;</code> as a trinary
+  comparison operator with precedence similar to <code>&lt;</code>, it
+  can:
+</p>
 
 <script>
   tp(
@@ -8000,9 +8004,9 @@ parentheses are in scope for the code in the curly brackets.</p>
   </li>
   <li>
     <p>
-      If you must automagically insert semicolons, leave it to tooling
-      like IDEs, and do it based on
-      <a href="#lexical-asi">lexical analysis</a>.
+      If you must automagically insert semicolons,
+      <a href="#tool-inserted-semicolons">leave it to tools</a>
+      like IDEs, and do it based on <a href="#lexical-asi">lexical analysis</a>.
     </p>
   </li>
 </ul>
