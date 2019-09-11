@@ -312,7 +312,7 @@ ${ formatOutput(got, 'actual') }`;
         }</div>`;
       }
     }
-    return html`<span class="astleaf">${ ast }</span>`;
+    return html`<span class="astleaf">${ ast.tok }</span>`;
   }
 
   function formatToken(x) {
@@ -653,11 +653,11 @@ ${ formatOutput(got, 'actual') }`;
     This is important when a developer is editing code.
     <ul>
       <li>IDEs should be able to derive some type information to
-	suggest appropriate completions, even when the expression
-	containing the cursor is malformed.
+        suggest appropriate completions, even when the expression
+        containing the cursor is malformed.
       <li>If an input to a REPL fails to parse, the REPL should be
-	able to localize the error to a fragment, and re-present the
-	input with the cursor at a convenient place.
+        able to localize the error to a fragment, and re-present the
+        input with the cursor at a convenient place.
     </ul>
     <p>
       It also lets tools provide degraded service when given a
@@ -5314,7 +5314,7 @@ const combinators = (() => {
               ? typeof target === 'string' && pattern.test(target)
               : pattern === target;
         if (matched) {
-          if (emit) { output.push(target); }
+          if (emit) { output.push(input[position]); }
           return position + 1;
         }
       }
@@ -7181,6 +7181,161 @@ const toyLanguageGrammar = new combinators.Grammar(
     );
   </script>
 </details>
+
+<h2 id="quantifying-resilience">Quantifying Parser Resilience</h2>
+
+<p>
+  To answer &ldquo;How good is this parser at containing damage?&rdquo;
+  we collect statistics on how many substrings can be removed from a
+  benchmark code sample without affecting the parsing of structures
+  on either side.
+</p>
+
+<pre class="prettyprint">
+before();
+{
+  <u>f(a/2*'3');</u>
+}
+after();
+</pre>
+
+<p>
+  We generate programs after removing every possible substring of the
+  underlined portion, and test several properties:
+</p>
+<ul>
+  <li>hasBefore: Does the AST contain a call to <code>before</code>?</li>
+  <li>hasAfter: Does the AST contain a call to <code>after</code>?</li>
+  <li>hasError: Does the AST contain an error <code>node</code>?</li>
+</ul>
+
+<table id="resilience-stats">
+  <thead>
+    <tr><th>hasBefore<th>hasAfter<th>hasError</thead>
+  <tbody>
+</table>
+
+<p>
+  The parser seems to reliably parse statements before the mutated statement.
+  The parser fairly reliably parses statements afterwards, but is not perfect
+  since removing the substring <code>b</code> merges the <code>/</code>
+  and <code>*</code> into the start of a <code>/* block comment */</code>.
+  This is despite the fact that about &frac34; have errors.
+</p>
+
+<script>
+test(
+  () => {
+    function doOneTest(code) {
+      const tokens = preparseTokens(lex(code));
+      const parseTree = parse(tokens);
+      const flatParseTree = flattenParseTreeToPseudoTokens(parseTree);
+      const { ast: [ ast ] } = toyLanguageGrammar.apply('program', flatParseTree);
+
+      let result = {
+        hasBefore: false,
+        hasAfter: false,
+        hasError: false,
+      };
+
+      function walk(ast, ancTypes=[]) {
+        if (ast.type === 'id'
+            && ancTypes[ancTypes.length - 1] === 'expr'
+            && ancTypes[ancTypes.length - 2] === 'call') {
+          switch (ast.children[0].tok) {
+          case 'before':
+            result.hasBefore = true;
+            break;
+          case 'after':
+            result.hasAfter = true;
+            break;
+          }
+        }
+        if (ast.discards) {
+          result.hasError = true;
+        }
+        if (Array.isArray(ast.children)) {
+          let { length } = ancTypes;
+          ancTypes[length] = ast.type;
+          for (const child of ast.children) {
+            walk(child, ancTypes);
+          }
+          ancTypes.length = length;
+        }
+      }
+      walk(ast);
+
+      if (!result.hasAfter) {
+        console.log(code);
+      }
+
+      return result;
+    }
+
+    console.group('resilience');
+    const testCodeLines = [
+      'before();',
+      '{',
+      '  f(a/2*\'3\');',
+      '}',
+      'after();',
+    ];
+
+    let testCount = 0;
+    let hasBeforeCount = 0;
+    let hasAfterCount = 0;
+    let hasErrorCount = 0;
+
+    try {
+      const line2 = testCodeLines[2];
+      const lineLen = line2.length;
+      for (let i = 0; i < lineLen - 1; ++i) {
+        for (let j = i ? i + 1 : 0; j < lineLen; ++j) {
+          testCodeLines[2] = line2.substring(0, i) + line2.substring(j);
+          const {
+            hasBefore, hasAfter, hasError,
+          } = doOneTest(testCodeLines.join('\n'));
+          ++testCount;
+          if (hasBefore) { ++hasBeforeCount; }
+          if (hasAfter) { ++hasAfterCount; }
+          if (hasError) { ++hasErrorCount; }
+        }
+      }
+      function pct(n, d) {
+        return html`<span title="${ n } out of ${ d }">${ (n/d * 100).toFixed(2) }%</span>`;
+      }
+      document.querySelector('#resilience-stats > tbody').innerHTML = html`
+        <tr>
+          <td>${ pct(hasBeforeCount, testCount) }</td>
+          <td>${ pct(hasAfterCount,  testCount) }</td>
+          <td>${ pct(hasErrorCount,  testCount) }</td>
+        </tr>`;
+
+      const want = {
+        hasBefore: 79,
+        hasAfter:  78,
+        hasError:  59,
+        testCount: 79,
+      };
+      const got = {
+        hasBefore: hasBeforeCount,
+        hasAfter: hasAfterCount,
+        hasError: hasErrorCount,
+        testCount,
+      };
+      console.log(`Got ${ JSON.stringify(got, null, 2) }`);
+
+      if (JSON.stringify(want) !== JSON.stringify(got)) {
+        console.error(`Want ${ JSON.stringify(want, null, 2) }`);
+        return false;
+      }
+      return true;
+    } finally {
+      console.groupEnd();
+    }
+  });
+</script>
+
 
 <h2 id="code-as-data">Code as data</h2>
 
