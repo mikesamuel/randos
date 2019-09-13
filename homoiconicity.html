@@ -4206,6 +4206,11 @@ function isWellformedToken(tok) {
   return wellformedTokenPattern.test(tok);
 }
 
+/**
+ * Given a parse tree and the operator set used to parse it,
+ * returns an array of problems found.
+ * An empty result indicates no problems.
+ */
 function checkParseTree(parseTree, { opSet = operatorSet } = {}) {
   const problems = [];
   walk(parseTree);
@@ -4301,8 +4306,7 @@ const wellformedTokenPattern = new RegExp('^(?:' + [
   String.raw`0[Xx][0-9A-Fa-f]+[IiLlUu]*`,
   String.raw`0[0-7]*[IiLlUu]*`,
   // Identifiers
-  (   String.raw`(?:[_$a-zA-Z]|\\u[0-9A-Fa-f]{4}|[^\x00-\xFF])` +
-   String.raw`(?:[_$0-9a-zA-Z]|\\u[0-9A-Fa-f]{4}|[^\x00-\xFF])*`),
+  String.raw`${ WORD_START }${ WORD_CONTINUE }*`,
   // Punctuation
   String.raw`[^\w\s/]+`,
   // Regex or div
