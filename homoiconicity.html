@@ -1224,8 +1224,9 @@ for (const [ open, close ] of [...bracketPartners.entries()]) {
 </script>
 
 
-<p>These operatores give arithmetic & logical expressions theit usual
-meanings.</p>
+<p>
+  These operators give arithmetic & logical expressions theit usual meanings.
+</p>
 
 <script>
   tp('1 - 1 - 1', [ [ [ '1' ], '-', [ '1' ] ], '-', [ '1' ]]);
@@ -1259,8 +1260,7 @@ public &lt;b, c&gt; int <u>f(a&lt;b, c&gt; d)</u> {
 
   return d.<u>f(a &lt; b, c &gt; d)</u>;
   //           &#x21e7;     &#x21e7;
-  // Using less than, greater than to compute actual
-  // parameters.
+  // Using less than, greater than to compute actual parameters.
 }
 </pre>
 
@@ -1282,7 +1282,7 @@ contexts:
 </ul>
 
 <p>
-  Here's how things parse when our operator precedence function uses
+  Here's how things parse when our operator precedence function
   only allows <code>&lt;&hellip;&gt;</code> to the right of the
   operators listed above.
 </p>
@@ -1887,7 +1887,7 @@ operators.push(
   );
 </script>
 
-<h3 id="flavours-of-colon">Flavours of colon</h3>
+<h3 id="flavours-of-colon">Flavours of colon</h3>  <!-- Did that come out wrong? -->
 
 <p id="colon-meanings">Also, &lsquo;:&rsquo; is odd.  It seems to have
 widely distinct precedences:</p>
@@ -2004,20 +2004,34 @@ widely distinct precedences:</p>
   );
     </script>
   </li>
-  <li>In TypeScript it precedes types.
+  <li>Otherwise it's an infix operator that separates keys from values or
+    typed items from types.
     <script>
   tp(
-    'const x : {} = {};',
+    'const x : { key: valueType } = { key: valueExpr };',
     [
       [
         [
           [ 'const', 'x' ],
           ':',
-          [ '{', '}' ],
+          [
+            '{',
+            [
+              [ 'key' ],
+              ':',
+              [ 'valueType' ],
+            ],
+            '}',
+          ],
         ],
         '=',
         [
           '{',
+          [
+            [ 'key' ],
+            ':',
+            [ 'valueExpr' ],
+          ],
           '}',
         ]
       ],
@@ -2112,7 +2126,7 @@ operators.push(
         ],
       ],
       ';',
-        ]
+    ]
   );
   tp(
     'return;',
@@ -2192,8 +2206,8 @@ const rootOperator  = { tok: '',   prec: -(1 << 30), type: PREFIX };
 const notAnOperator = { tok: null, prec: +(1 << 30), type: TOKEN };
 
 /**
- * Given operators, true when an operator stack consisting of
- * outers can contain the inner operator.
+ * Given operators, true when an operator stack consisting of outers
+ * can contain the inner operator.
  *
  * @param inner a stack element.
  * @param outers a function such that
@@ -2311,7 +2325,18 @@ function isTypeContext(outers) {
 }
 </script>
 
-<p>Some bookkeeping functions help us juggle brackets.</p>
+<p>
+  This function takes &gt;50 lines of code to handle legacy constructs
+  and corner cases from a slew of languages to demonstrate that
+  handling these is feasible.  An equivalent function for a language
+  that did not need to support all these corner cases might be much
+  simpler.  For example, using <tt>[&hellip;]</tt> to group type
+  parameters, a la Scala, would obviate half of this code.
+</p>
+
+<p>
+  This function depends on some bookkeeping functions to juggle brackets.
+</p>
 
 <script class="visible">
 /**
@@ -2911,9 +2936,11 @@ an infix operator?&rdquo;, a scannerless parser would ask &ldquo;which,
 if any, is the longest infix operator that is a prefix of the remaining
 input and can nest here?&rdquo;.</p>
 
-<p>We do not do that though, because non-CF lexical grammars defeat our
-goal of having simple analyses correctly segment fragments of code that
-start and end on token boundaries.</p>
+<p>
+  We do not do that though, because non-CF lexical grammars defeat our
+  goal of allowing simple analyzers to correctly segment fragments of
+  code that start and end on token boundaries.
+</p>
 
 <p>So CF grammars meet our goals, but regular lexical grammars are
 insufficient for commonly used, C-like languages.  Complications arise
@@ -2963,12 +2990,13 @@ function regexEscape(x) {
 
 const allOperators = [...operators.map(x => x.tok), ...closeBrackets.keys()]
       .flat()
-      // Keywords like `instanceof`, `else` handles as word tokens.
+      // Keywords like `instanceof`, `else`, `new` handled as word tokens.
       .filter((x) => !WORD_RE.test(x))
-      // Sort in reverse order so RegExp matches longest possible.
+      // Sort in reverse length order so RegExp matches longest possible.
       .sort((a, b) => b.length - a.length);
+// Partition operators to allow for regexp/division operator disambiguation.
 const nonDivOperators = allOperators.filter((x) => x[0] !== '/');
-const divOperators = allOperators.filter((x) => x[0] === '/');
+const divOperators =    allOperators.filter((x) => x[0] === '/');
 
 // Matches ignorable tokens at start of input.
 const ignorableTokens = new RegExp('^(?:' + [
@@ -2996,9 +3024,11 @@ const uncontroversialToken = new RegExp('^(?:' + [
   `@?${ WORD_START }${ WORD_CONTINUE }*`,
 ].join('|') + ')');
 
+// Matches a division operator at the beginning of input.
 const divToken = new RegExp(
   '^(?:' + divOperators.map(regexEscape).join('|') + ')');
 
+// Matches a regular expression literal at the beginning of input.
 const regexpToken = new RegExp(
   (() => {
     const notAComment = String.raw`(?![*/])`;
@@ -3013,6 +3043,7 @@ const regexpToken = new RegExp(
   })()
 );
 
+// Matchs a chunk of a template literal not including the opening backquote.
 const backquoteStringContent = new RegExp(
   String.raw`^(?:[^\`\\$]|[$](?![\{])|\\[\s\S]?)*`);
 
@@ -3032,7 +3063,7 @@ const backquoteStringContent = new RegExp(
  * emitIgnorable is true.
  */
 function *lex(
-    sourceText,
+  sourceText,
   {
     opSet = operatorSet,
     onLexError = () => {},
@@ -3188,9 +3219,11 @@ function *lex(
 }
 </script>
 
-<p>Our lexer works as expected on some sample inputs.  These tests
-show the series of tokens produced, with comment and whitespace
-tokens filtered out.</p>
+<p>
+  Our lexer works as expected on some sample inputs.  These tests
+  show the series of tokens produced, with comment and whitespace
+  tokens filtered out.
+</p>
 
 <script>
   tl(
@@ -3274,10 +3307,12 @@ tokens.</p>
      ['`staticText ${', 'dynamicValue', '} etc.`']);
 </script>
 
-<p>We could build knowledge of this into the parser, but that would
-defeat the goal of having few, simple rules, and moving most of the
-understanding into the language-specific parse tree &rarr; AST
-transform.</p>
+<p>
+  We could build knowledge of this into the parser, but that would
+  defeat the goal of having few, simple rules, and moving most of the
+  understanding into the language-specific parse tree &rarr; AST
+  transform.
+</p>
 
 <p>
   Instead, we transform the token stream between the lexer and the
@@ -3297,7 +3332,7 @@ transform.</p>
   string is grouped as one construct, and that expressions inside holes
   (<code>${...}</code>) are self-contained.  Open parenthesis is overloaded
   in most C-like languages to mean (grouping, function call, type cast)
-  so we take care that the synthetized parentheses around holes
+  so we take care that the synthesized parentheses around holes
   are not interpreted as INFIX operations.
 </p>
 
@@ -3344,10 +3379,11 @@ function *preparseTokens(tokens) {
      { preparse: preparseTokens });
 </script>
 
-<p>We can see that this parses sensibly, even when there's a
-&lsquo;;&rsquo; in an expression that fills a hole, and that the
-parentheses around holes do not participate in function
-application.</p>
+<p>
+  We can see that this parses sensibly, even when there's an errant
+  &lsquo;;&rsquo; in an expression that fills a hole, and that the
+  parentheses around holes do not participate in function application.
+</p>
 
 <script>
   tp(
@@ -3407,12 +3443,25 @@ let y = 2    // Not here
         + x  /* ; */
 </pre>
 
-<p>This may make writing code slightly easier, but in all these
-languages is also a consistent source of confusion for authors.
-Whether it is better for readers is unclear.</p>
+<p>
+  This may make writing code easier, requiring fewer keystrokes and
+  getting rid of common error messages about missing semicolons.  ASI
+  may be a net positive for authors, but in all languages that do it
+  is a source of uncommon, but subtle bugs.  Whether it is better for
+  readers is unclear.
+</p>
+
+<p>
+  This section discusses different varieties of semicolon insertion
+  and how they affect operator precedence parsing.  Later,
+  <a href="#suggestions">suggestions</a> provides concrete advice.
+  The parser introduced above does not do semicolon insertion.
+</p>
 
 <h3 id="syntactic-asi">Syntactic ASI</h3>
-<p>ASI can be deeply entangled with parsing:</p>
+<p>
+  ASI can be deeply entangled with parsing:
+</p>
 
 <ul>
   <li><a href="https://tc39.es/ecma262/#sec-automatic-semicolon-insertion">JavaScript</a>'s
@@ -3426,17 +3475,24 @@ Whether it is better for readers is unclear.</p>
     </blockquote>
 </ul>
 
-<p>This operator precedence scheme allows two non-operator tokens to
-appear adjacent: <code>int x</code>.  Any scheme to allow ASI in an
-operator precedence grammar would need to explicitly handle this via
-some kind of adjacency operator, so that the parser could elect to
-insert a semicolon where nothing on the stack accepts the current
-token.</p>
+<p>
+  This operator precedence scheme allows two non-operator tokens to
+  appear adjacent: <code>int x</code>.  An attempt to build ASI into an
+  operator precedence parser would need to design the language to avoid
+  adjacent words or explicitly handle this via some kind of adjacency
+  operator, so that the parser could elect to insert a semicolon when
+  the current token would require popping the stack past semicolon's
+  precedence level, and a postfix semicolon could accept the lowest
+  precedence stack element that has precedence greater than semicolon.
+</p>
 
 <h3 id="lexical-asi">Lexical ASI</h3>
-<p>Alternatively, ASI can be based on lexical analysis before parsing
-starts, which would allow it to be done during
-<a href="#token-preparsing">token preparsing</a>:</p>
+<p>
+  Alternatively, ASI can be based on lexical analysis before parsing
+  starts, which would allow it to be done during
+  <a href="#token-preparsing">token preparsing</a> which would allow
+  ASI without entangling the parser:
+</p>
 
 <ul>
   <li><a href="https://golang.org/ref/spec#Semicolons">Go</a>:
@@ -3453,50 +3509,107 @@ starts, which would allow it to be done during
     </blockquote>
 </ul>
 
-<h3 id="asi-alternatives">Alternatives</h3>
+<h3 id="asi-affects-tooling">Effect of ASI on Tooling</h3>
 
 <p>
-  It is possible to reconcile these seemingly contradictory claims:
+  Simple operations like moving tokens from one line to another to
+  split overly long lines becomes more complicated when you need to
+  ensure that the compiler won't differently insert semicolons.  For
+  example, in JavaScript ASI can cause two similar looking programs to
+  be interpreted quite differently
+  (see also <a href="https://tc39.es/ecma262/#sec-examples-of-automatic-semicolon-insertion">Ecma262 &para; 11.9.2</a>):
+</p>
+
+<pre class="prettyprint">
+for (let i = 0; i &lt; 10; i++) {
+  f(i);
+}
+//        &darr;
+for (let i = 0; i &lt; 10; i
+     ++) {
+  f(i);
+}
+// SyntaxError.  Per JavaScript's ASI rules `++` cannot be separated
+// from its operand by a line break.
+
+
+longName = i++
+f()
+//        &darr;
+longName = i
+++
+f()
+// Loud semantic change.  Second equivalent to `longName=i;++(f());`
+
+
+function f(longName) {
+  return longName()
+}
+//        &darr;
+function f(longName) {
+  return
+    longName()
+}
+// Silent semantic change.  Call never happens.  Returns undefined
+</pre>
+
+<p>
+  With ASI, a developer using a generic editor function like Emacs's
+  <i>fill-paragraph</i> (M-q) without a JavaScript-specific mode hook
+  runs a risk of introducing subtle semantic changes to code.
+  This is subideal.
+</p>
+
+<h3 id="tool-based-asi">Tool-based ASI</h3>
+<p>
+  Another option (unimplemented in any language to the best of the
+  authors' knowledge) is to do ASI but not in a way that's invisible
+  to authors and readers.
+</p>
+
+<p>
+  Much of the debate about ASI can be boiled down to two claims
+  which seem mutually contradictory but are actually reconcilable:
 </p>
 
 <ul>
-  <li>The language should specify ASI to make it easier for authors
-    (especially novices) to produce programs.</li>
-  <li>The language's compiler/interpreter should not perform ASI
-    since it is a source of subtle bugs and makes careful reading
-    of code difficult.</li>
+  <li>The language should incorporate ASI to make it easier for
+    authors (especially novices) to produce programs, and to reduce
+    cognitive load for casual readers.</li>
+  <li>The language's compiler/interpreter should not perform ASI since
+    it is a source of subtle bugs and careful reading of code is
+    difficult when readers have to predict where semicolons are
+    inserted.</li>
 </ul>
 
 <p id="tool-inserted-semicolons">
-  Language designers could leave ASI to developer tools while
-  specifying how ASI should be done, and commit to backwards
-  compatibility with that scheme.
+  Language designers could specify how ASI should be done, commit to
+  taking ASI into account when considering backwards compatibility,
+  but leave the actual insertion to developer tools.
 </p>
 
-<p>
-  Specifically:
-</p>
 <ul>
   <li>
-    IDE on-save hooks could perform ASI relieving the author of the
-    burden of writing them, but making them explicit in the source
-    text.
+    IDE on-save hooks could perform ASI, thus relieving the author of
+    the burden of typing semicolons, but making them explicit in the
+    source text.
   </li>
-  <li>Code syntax highlighters could de-emphasize (via lower-contrast
+  <li>
+    Code syntax highlighters could de-emphasize (via lower-contrast
     coloring) semicolons that would be inserted by such hooks were
     they not present, reducing the cognitive burden on readers
     concerned with intent over semantics.
   </li>
+  <li>
+    Additionally, the compiler/interpreter could do ASI but then
+    reqort a fatal error if any semicolons were actually inserted.
+    Developers who uses inserting editors should never encounter one
+    of these errors, but incorrigible Notepad users would have to
+    produce output that would not change if loaded into an inserting
+    editor and immediately saved.
+  </li>
 </ul>
 
-<p>
-  Both are easier if ASI is lexical, not syntactic.
-</p>
-
-<p>
-  ASI is later discussed in <a href="#suggestions">suggestions</a> for
-  language designers.
-</p>
 
 <h2 id="custom-expression-operators">Custom Expression Operators</h2>
 
@@ -3553,14 +3666,14 @@ const scalaesqueParser = makeParser(scalaesqueOperatorSet, canNest);
 </script>
 
 <p>
-  Now, if user code wanted to use <code>&lt;=&gt;</code> as a trinary
-  comparison operator with precedence similar to <code>&lt;</code>, it
-  can:
+  Now, user code can use an operator not defined above like
+  &lsquo;<code>&lt;=&gt;</code>&rsquo; (trinary comparison in Perl)
+  with precedence similar to &lsquo;<code>&lt;</code>&rsquo;:
 </p>
 
 <script>
   tp(
-    'for (val a = 1; a + b <=> c * d +. e; ++a ) { doTheThing(a) }',
+    'for (val a = 1; a + b <=> c * d +. e; ++a) { doTheThing(a) }',
     [
       [
         [ "for" ],
@@ -3638,32 +3751,38 @@ const scalaesqueParser = makeParser(scalaesqueOperatorSet, canNest);
     });
 </script>
 
-<p>This requires some changed to lexing.  One downside is that custom operators require
-developers to use more whitespace even in code that does not use custom operators.
-This limitation arises because there is no closed set of punctuation strings that lets us
-split, for example &ldquo;<code>x*-y</code>&rdquo; into &ldquo;<code>x * - y</code>&rdquo; because
-&ldquo;<code>*-</code>&rdquo; could be a user defined operator.
-C already has this problem to a small degree because &ldquo;<code>x--y</code>&rdquo;
-is not the same as &ldquo;<code>x - -y</code>&rdquo;, but developers typically write
-&ldquo;<code>x+y</code>&rdquo; instead of
-subtracting a negated value, so the fact that &rdquo;<code>++</code>&ldquo; and
-&rdquo;<code>--</code>&ldquo; are unsplittable by context-free lexers does not, in practice,
-result in much confusion for C authors.</p>
+<p>
+  This requires some changed to lexing since our stock lexer treats
+  &lsquo;<code>&lt;=&gt;</code>&rsquo;.  The testcase above uses a
+  lexer that simply splits on word breaks and spaces.
+</p>
+
+<p>
+  One downside is that custom operators require developers to use more
+  whitespace even in code that does not use custom operators.  This
+  limitation arises because there is no closed set of punctuation
+  strings that lets us split, for example &ldquo;<code>x*-y</code>&rdquo;
+  into &ldquo;<code>x * -y</code>&rdquo; because
+  &ldquo;<code>*-</code>&rdquo; could be a user defined operator.  C
+  already has this problem to a small degree because
+  &ldquo;<code>x--y</code>&rdquo; is not the same as
+  &ldquo;<code>x - -y</code>&rdquo;, but developers typically write
+  &ldquo;<code>x+y</code>&rdquo; instead of subtracting a negated
+  value, so the fact that &lsquo;<code>++</code>&rsquo; and
+  &lsquo;<code>--</code>&rsquo; are unsplittable by context-free
+  lexers does not, in practice, confuse C authors.
+</p>
 
 <h2 id="well-formedness">Well-formedness</h2>
 
-<p>It is a goal of this parsing style to represent partial and broken
-inputs, so some passes may need to take some default action on inputs
-that are not well-formed.  A parse-tree may be ill-formed in one of
-several ways even if it structurally corresponds to an AST, so
-throwing out malformed inputs can reduces the number of corner cases
-that need to be considered by the parse tree &rarr; AST transform.</p>
-
-<p>These tests show how a parse tree may fail some generic
-well-formedness checks. Red
-<span class="problem-tokens">wiggly</span> underlines show tokens that
-participate in a malformed subtree.  Click the expando to see the
-error messages.</p>
+<p>
+  These tests show some common ways a parse tree may fail some generic
+  well-formedness checks, and in the process catalogue some common
+  kinds of problematic inputs.
+  Red <span class="problem-tokens">wiggly</span> underlines show
+  tokens that participate in a malformed subtree.  Click the expando
+  to see the error messages.
+</p>
 
 <ul>
   <li>A partial token like
@@ -4003,7 +4122,9 @@ error messages.</p>
       );
     </script>
   </li>
-  <li>Things that aren't recognized as errors but could be
+  <li>
+    Things that aren't recognized as errors before the AST pass but
+    which could be
     <script>
       twf(
         '`empty hole ${ }`',
